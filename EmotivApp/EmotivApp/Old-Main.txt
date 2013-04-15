@@ -1,0 +1,284 @@
+/**
+  *
+  * Aplicativo desenvolvido em C++ que exemplifica 
+  * o funcionamento da API do headset Emotiv Epoc
+  *
+  * Data: 11/07/2010
+  *
+  * Autor: Renato Peterman
+  * E-mail: 
+  *
+  * Epoc(TM) é marca registrada da Emotiv(R) Systems, Inc.
+  *
+  */
+
+//Bibliotecas C
+#include <conio.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+
+//Bibliotecas STL (C++)
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <map>
+
+//Headers Emotiv
+#include "EmoStateDLL.h"
+#include "edk.h"
+#include "edkErrorCode.h"
+
+#include "SerialClass.h"
+
+//Header com a função para definir as cores
+#include "cores.h"
+
+//Biblioteca Emotiv
+#pragma comment(lib, "../lib/edk.lib")
+
+//Namespace STL (C++)
+using namespace std;
+
+//Declaracao das funcoes utilizadas
+void conectaEmoEngine();
+void conectaEmoComposer();
+void gotoxy(int x, int y);
+
+int main(){
+
+	Serial serial ("COM3");
+	EmoEngineEventHandle eEvent			= EE_EmoEngineEventCreate();
+	EmoStateHandle eState				= EE_EmoStateCreate();
+	int state							= 0;
+
+	//Headset a ser utilizado
+	unsigned int userID					= 0;
+	
+	//Variavel utilizada para opção do menu
+	int op								= 0;
+
+	//Variavel utilizada para receber a opcao do menu
+	string entrada;
+
+	cout << "===============================================================================" << endl;
+	cout << "\n\tExemplo de Aplicacao para Emotiv Epoc por Renato Peterman\n" << endl;
+	cout << "===============================================================================" << endl;
+
+	cout << "\n>> Pressione (1) para conectar ao EmoEngine" << endl;
+	cout << ">> Pressione (2) para conectar ao EmoComposer\n" << endl;
+	cout << "\n>> ";
+	
+	//Pega a entrada do usuario em string e converte em int
+	getline(cin, entrada, '\n');
+	op = atoi(entrada.c_str());
+
+	switch(op){
+		case 2:
+		{
+			//Chama a função que conecta ao EmoComposer
+			conectaEmoComposer();
+			break;
+		}
+		case 1:
+		{
+			//Chama a função que conecta ao EmoComposer / EmoEngine
+			conectaEmoComposer();
+			//conectaEmoEngine();
+
+			while (!_kbhit()) {
+
+				state = EE_EngineGetNextEvent(eEvent);
+
+				// 
+				if (state == EDK_OK) {
+
+					EE_Event_t eventType = EE_EmoEngineEventGetType(eEvent);
+					EE_EmoEngineEventGetUserId(eEvent, &userID);
+
+					// Identifica quando for atualizado o estado
+					if (eventType == EE_EmoStateUpdated) {
+
+						EE_EmoEngineEventGetEmoState(eEvent, eState);
+						const float timestamp = ES_GetTimeFromStart(eState);
+						 
+						setCor(BRANCOB);
+
+						gotoxy(0,4);
+
+						printf("Headset/Usuario: %d",userID);
+						gotoxy(0,5);
+						printf("Sinal Wireless: ");
+
+						switch(static_cast<int>(ES_GetWirelessSignalStatus(eState))){
+							case 0:
+							{
+								setCor(VERMELHOC);
+								printf("Sem sinal  ");
+								setCor(VERDEC);
+								break;
+							}
+							case 1:
+							{
+								setCor(AMARELOC);
+								printf("Sinal ruim");
+								setCor(VERDEC);
+								break;
+							}
+							case 2:
+							{
+								printf("Sinal Bom  ");
+								break;
+							}
+						}
+
+						setCor(VERDEC);
+						
+						gotoxy(0,8);
+						printf("Tempo decorrido: %1.3fs\r", timestamp);
+						
+						setCor(BRANCOB);
+
+						gotoxy(0,10);
+						printf("Expressoes:");
+
+						gotoxy(0,12);
+						printf("Piscar/Fechar os Olhos: %d",ES_ExpressivIsBlink(eState));
+						gotoxy(0,13);
+						printf("Piscar/Fechar o Olho Esquerdo: %d",ES_ExpressivIsLeftWink(eState));
+
+						if(ES_ExpressivIsLeftWink(eState) == 1){
+							serial.WriteData("180a",5);
+						}
+
+						gotoxy(0,14);
+						printf("Piscar/Fechar o Olho Direito: %d",ES_ExpressivIsRightWink(eState));
+
+						if(ES_ExpressivIsRightWink(eState) == 1){
+							serial.WriteData("000a",5);
+						}
+
+						gotoxy(0,15);
+						printf("Olhar para a Esquerda: %d",ES_ExpressivIsLookingLeft(eState));
+						gotoxy(0,16);
+						printf("Olhar para a Direita: %d",ES_ExpressivIsLookingRight(eState));
+
+						map<EE_ExpressivAlgo_t, float> estados;
+
+						EE_ExpressivAlgo_t upperFaceAction = ES_ExpressivGetUpperFaceAction(eState);
+						float			   upperFacePower  = ES_ExpressivGetUpperFaceActionPower(eState);
+
+						EE_ExpressivAlgo_t lowerFaceAction = ES_ExpressivGetLowerFaceAction(eState);
+						float			   lowerFacePower  = ES_ExpressivGetLowerFaceActionPower(eState);
+
+						estados[ upperFaceAction ] = upperFacePower;
+						estados[ lowerFaceAction ] = lowerFacePower;
+
+						gotoxy(0,18);
+						printf("Sorrir: %.2f",estados[ EXP_SMILE ]);
+
+						gotoxy(0,20);
+						printf("Franzir a testa: %.2f", estados[ EXP_FURROW ]);
+
+						gotoxy(0,22);
+						printf("Erquer a sobrancelha: %.2f", estados[ EXP_EYEBROW ]);
+						
+
+					}
+				}
+				else if (state != EDK_NO_EVENT) {
+					cout << "\nErro!" << endl;
+					break;
+				}
+
+			Sleep(1);
+			
+			}
+
+			
+
+			break;
+		}
+		default:
+			throw exception("Opcao Invalida...");
+			break;
+	}
+
+	getchar();
+	
+	//Desconecta
+	EE_EngineDisconnect();
+
+	return 0;
+}
+
+void conectaEmoEngine(){
+	
+	//Limpa a tela
+	system("cls");
+
+	//Conecta ao EmoEngine (Headset)
+	if(EE_EngineConnect() != EDK_OK){
+	
+		//Define a cor vermelho claro
+		setCor(VERMELHOC);
+
+		cout << "\nDesculpe, mas nao foi possivel conectar ao EmoEngine" << endl;
+	
+	}else{
+	
+		//Define a cor verde claro
+		setCor(VERDEC);
+
+		cout << "\nConectado ao EmoEngine." << endl;
+	
+	}
+
+}
+
+void conectaEmoComposer(){
+	
+	//Porta utilizada para conectar ao EmoComposer
+	//Que será atribuída pelo usuário
+	const unsigned short portaEmoComposer	= 1726;
+
+	//Host que será utilizado para conectar ao EmoComposer
+	//Que será atribuído a partir
+	string hostEmoComposer;
+
+	system("cls");
+
+	cout << "Informe o host [127.0.0.1]: ";
+
+	//Recebe o valor digitado pelo usuário
+	getline(cin,hostEmoComposer,'\n');
+
+	//Valida a entrada do usuario
+	//Se ele não digitar nada atribui o valor 127.0.0.1 a variavel
+	if(hostEmoComposer.empty()){
+		hostEmoComposer = string("127.0.0.1");
+	}
+
+	//Conecta ao EmoComposer
+	if(EE_EngineRemoteConnect(hostEmoComposer.c_str(),portaEmoComposer) != EDK_OK){
+	
+		setCor(VERMELHOC);
+
+		cout << "\nDesculpe, mas nao foi possivel conectar ao EmoComposer em " << hostEmoComposer <<endl;
+	
+	}else{
+	
+		setCor(VERDEC);
+
+		cout << "\nConectado ao EmoComposer." << endl;
+	
+	}
+
+}
+
+void gotoxy(int x, int y){
+	COORD coord;
+	coord.X = x;
+	coord.Y = y;
+	SetConsoleCursorPosition(hConsole,coord);
+}
