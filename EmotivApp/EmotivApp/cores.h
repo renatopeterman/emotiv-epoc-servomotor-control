@@ -6,7 +6,6 @@
   * Data: 11/07/2010
   *
   * Autor: Renato Peterman
-  * E-mail: 
   *
   * Epoc(TM) é marca registrada da Emotiv Systems, Inc.
   *

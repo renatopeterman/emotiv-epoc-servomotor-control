@@ -10,7 +10,6 @@
   *              e implementada movimentação vertical.
   *
   * Autor: Renato Peterman
-  * E-mail: 
   *
   * Epoc(TM) é marca registrada da Emotiv(R) Systems, Inc.
   *
